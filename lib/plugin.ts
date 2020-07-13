@@ -15,11 +15,10 @@ export default class msalPlugin {
         }
         const exposed: MSALBasic = {
             data: msal.data,
-            signIn() { msal.signIn(); },
+            async signIn() { await msal.signIn(); },
             async signOut() { await msal.signOut(); },
+            async getTokenPopup() { await msal.getTokenPopup(); },
             isAuthenticated() { return msal.isAuthenticated(); },
-            async acquireToken(request, retries = 0) { return await msal.acquireToken(request, retries); },
-            async msGraph(endpoints, batchUrl) { return await msal.msGraph(endpoints, batchUrl) },
             saveCustomData(key: string, data: any) { msal.saveCustomData(key, data); }
         };
         return exposed;
