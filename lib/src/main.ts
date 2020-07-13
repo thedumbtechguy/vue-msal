@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {default as axios, Method} from "axios";
-import {UserAgentApplicationExtended} from "./UserAgentApplicationExtended";
+import * as msal from "@azure/msal-browser";
 import {
     Auth,
     Request,
@@ -66,11 +66,10 @@ export class MSAL implements MSALBasic {
         this.request = Object.assign(this.request, options.request);
         this.graph = Object.assign(this.graph, options.graph);
 
-        this.lib = new UserAgentApplicationExtended({
+        this.lib = new msal.PublicClientApplication({
             auth: {
                 clientId: this.auth.clientId,
-                authority: this.auth.authority || `https://${this.auth.tenantName}/${this.auth.tenantId}`,
-                validateAuthority: this.auth.validateAuthority,
+                authority: this.auth.authority || `https://login.microsoftonline.com/${this.auth.tenantId}`,
                 redirectUri: this.auth.redirectUri,
                 postLogoutRedirectUri: this.auth.postLogoutRedirectUri,
                 navigateToLoginRequestUrl: this.auth.navigateToLoginRequestUrl
@@ -107,7 +106,11 @@ export class MSAL implements MSALBasic {
     signIn() {
         if (!this.lib.isCallback(window.location.hash) && !this.lib.getAccount()) {
             // request can be used for login or token request, however in more complex situations this can have diverging options
-            this.lib.loginRedirect(this.request);
+            this.lib.loginPopup(this.request).then(
+                loginResponse => {
+                    console.log('id_token acquired at: ' + new Date().toString());
+                }
+            )
         }
     }
     async signOut() {
@@ -149,10 +152,12 @@ export class MSAL implements MSALBasic {
         let setCallback = false;
         if(response.tokenType === 'access_token' && this.data.accessToken !== response.accessToken) {
             this.setToken('accessToken', response.accessToken, response.expiresOn, response.scopes);
+            console.log('got accessToken: ' + response.accessToken)
             setCallback = true;
         }
         if(this.data.idToken !== response.idToken.rawIdToken) {
             this.setToken('idToken', response.idToken.rawIdToken, new Date(response.idToken.expiration * 1000), [this.auth.clientId]);
+            console.log('got idToken: ' + response.idToken.rawIdToken)
             setCallback = true;
         }
         if(setCallback) {

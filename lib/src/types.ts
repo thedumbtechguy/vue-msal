@@ -6,13 +6,15 @@ export type AuthError = msal.AuthError;
 export type AuthResponse = msal.AuthResponse;
 
 export type Auth = {
+    knownAuthorities?: Array<string>;
+    cloudDiscoveryMetadata?: string;
     clientId: string,
     authority? : string,
     tenantId?: string,
     tenantName?: string,
     validateAuthority?: boolean;
-    redirectUri?: string | (() => string);
-    postLogoutRedirectUri?: string | (() => string);
+    redirectUri?: string;
+    postLogoutRedirectUri?: string;
     navigateToLoginRequestUrl?: boolean;
     requireAuthOnInitialize?: boolean,
     autoRefreshToken?: boolean,
