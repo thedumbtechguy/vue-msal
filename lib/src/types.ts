@@ -60,6 +60,5 @@ export interface MSALBasic {
     signIn: () => Promise<any> | void,
     signOut: () => Promise<any> | void,
     getTokenPopup: () => Promise<any> | void,
-    isAuthenticated: () => boolean,
-    saveCustomData: (key: string, data: any) => void
+    isAuthenticated: () => boolean
 }

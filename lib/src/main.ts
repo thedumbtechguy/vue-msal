@@ -12,7 +12,6 @@ import {
 
 export class MSAL implements MSALBasic {
     private lib: any;
-    private tokenExpirationTimers: {[key: string]: undefined | number} = {};
     public data: DataObject = {
         isAuthenticated: false,
         accessToken: '',
@@ -59,15 +58,16 @@ export class MSAL implements MSALBasic {
                 postLogoutRedirectUri: this.auth.postLogoutRedirectUri,
                 navigateToLoginRequestUrl: this.auth.navigateToLoginRequestUrl
             },
-            cache: this.cache,
-            system: options.system
+            cache: this.cache
         });
 
         if (this.auth.requireAuthOnInitialize) {
+            console.log('requireAuthOnInitialize : ' + this.auth.requireAuthOnInitialize)
             this.signIn()
         }
         this.data.isAuthenticated = this.isAuthenticated();
         if (this.data.isAuthenticated) {
+            console.log('isAuthenticated')
             const currentAccounts = this.lib.getAllAccounts();
             if (currentAccounts === null) {
                 // No user signed in
@@ -75,43 +75,32 @@ export class MSAL implements MSALBasic {
             } else if (currentAccounts.length > 1) {
                 // More than one user signed in, find desired user with getAccountByUsername(username)
             } else {
-                console.log('loggin in : ' + currentAccounts[0])
+                console.log('logged in : ' + currentAccounts[0].username);
+                const token = this.getTokenPopup()
             }
+        } else {
+            console.log('Not isAuthenticated!')
         }
-        this.getStoredCustomData();
     }
     isAuthenticated() {
-        return !this.lib.isCallback(window.location.hash) && !!this.lib.getAccount();
-    }
-    // CUSTOM DATA
-    saveCustomData(key: string, data: any) {
-        if (!this.data.custom.hasOwnProperty(key)) {
-            this.data.custom[key] = null;
-        }
-        this.data.custom[key] = data;
-        this.storeCustomData();
-    }
-    private storeCustomData() {
-        if (!_.isEmpty(this.data.custom)) {
-            this.lib.store.setItem('msal.custom', JSON.stringify(this.data.custom));
+        const currentAccounts = this.lib.getAllAccounts();
+        if (currentAccounts === null) {
+            // No user signed in
+            return false;
+        } else if (currentAccounts.length > 1) {
+            // More than one user signed in, find desired user with getAccountByUsername(username)
+            return true
         } else {
-            this.lib.store.removeItem('msal.custom');
+            return true
         }
-    }
-    private getStoredCustomData() {
-        let customData = {};
-        const customDataStr = this.lib.store.getItem('msal.custom');
-        if (customDataStr) {
-            customData = JSON.parse(customDataStr);
-        }
-        this.data.custom = customData;
     }
     async signIn() {
-        try {
-            const loginResponse = await this.lib.loginPopup(this.request);
-        } catch (err) {
-            console.log(err)
-        }
+        this.lib.loginPopup(this.request).then(loginResponse => {
+            console.log('id_token acquired at: ' + new Date().toString());
+            console.log('got account!' + this.lib.getAccount())
+        }).catch(error => {
+            console.error(error);
+        });
     }
 
     signOut() {
@@ -120,11 +109,14 @@ export class MSAL implements MSALBasic {
 
     async getTokenPopup() {
         return await this.lib.acquireTokenSilent(this.request).catch(async (error) => {
-            console.log("silent token acquisition fails. acquiring token using popup");
+            console.log("silent token acquisition fails. acquiring token using popup: " + error);
             // fallback to interaction when silent call fails
-            return await this.lib.acquireTokenPopup(this.request).catch(error => {
-                console.log('error!' + error)
-            });
+            return this.lib.acquireTokenPopup(this.request)
+                .then(tokenResponse => {
+                    return tokenResponse;
+                }).catch(error => {
+                    console.error(error);
+                });
         });
     }
 }
