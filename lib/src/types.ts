@@ -5,13 +5,15 @@ export type CacheOptions = conf.CacheOptions;
 export type AuthError = msal.AuthError;
 export type AuthResponse = msal.AuthResponse;
 export type SystemOptions = conf.SystemOptions;
+export type Account = msal.Account;
 
 export type DataObject = {
     isAuthenticated: boolean,
     accessToken: string,
     idToken: string,
     user: User,
-    custom: object
+    custom: object,
+    account?: msal.Account
 }
 
 export type FrameworkOptions = {
@@ -30,6 +32,7 @@ export type Options = {
 
 export type Request = {
     scopes?: string[]
+    account? : msal.Account
 }
 
 // Config object to be passed to Msal on creation.
