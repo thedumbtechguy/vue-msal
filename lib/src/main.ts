@@ -1,122 +1,105 @@
-import _ from "lodash";
 import * as msal from "@azure/msal-browser";
-import {
-    Auth,
-    Request,
-    CacheOptions,
-    Options,
-    DataObject,
-    CallbackQueueObject,
-    MSALBasic,
-} from './types';
 
-export class MSAL implements MSALBasic {
-    private lib: any;
+import { iMSAL, DataObject, Options, Auth, CacheOptions, Request, User } from './types';
+
+export class MSAL implements iMSAL {
+    private msalLibrary: any;
     public data: DataObject = {
         isAuthenticated: false,
         accessToken: '',
         idToken: '',
-        user: {},
+        user: { name: '', userName: ''},
         custom: {}
     };
-    public callbackQueue: CallbackQueueObject[] = [];
-    private readonly auth: Auth = {
-        clientId: '',
-        authority: '',
-        tenantId: 'common',
-        tenantName: 'login.microsoftonline.com',
-        validateAuthority: true,
-        redirectUri: window.location.href,
-        postLogoutRedirectUri: window.location.href,
-        navigateToLoginRequestUrl: true,
-        requireAuthOnInitialize: false,
-        autoRefreshToken: true,
+    // Config object to be passed to Msal on creation.
+    // For a full list of msal.js configuration parameters, 
+    // visit https://azuread.github.io/microsoft-authentication-library-for-js/docs/msal/modules/_authenticationparameters_.html
+    private auth: Auth = {
+        clientId: "",
+        authority: "",
+        redirectUri: "",
         onAuthentication: (error, response) => {},
         onToken: (error, response) => {},
         beforeSignOut: () => {}
     };
-    private readonly cache: CacheOptions = {
-        cacheLocation: 'localStorage',
-        storeAuthStateInCookie: true
+    private cache: CacheOptions = {
+        cacheLocation: "sessionStorage", // This configures where your cache will be stored
+        storeAuthStateInCookie: false, // Set this to "true" if you are having issues on IE11 or Edge
     };
-    private readonly request: Request = {
-        scopes: ["user.read"]
+    // Add here scopes for id token to be used at MS Identity Platform endpoints.
+    private loginRequest: Request = {
+        scopes: ["openid", "profile", "User.Read"]
     };
-    constructor(private readonly options: Options) {
+
+    // Add here scopes for access token to be used at MS Graph API endpoints.
+    private tokenRequest: Request = {
+        scopes: ["User.Read"]
+    };
+
+    constructor(options: Options) {
         if (!options.auth.clientId) {
             throw new Error('auth.clientId is required');
         }
         this.auth = Object.assign(this.auth, options.auth);
         this.cache = Object.assign(this.cache, options.cache);
-        this.request = Object.assign(this.request, options.request);
-
-        this.lib = new msal.PublicClientApplication({
-            auth: {
-                clientId: this.auth.clientId,
-                authority: this.auth.authority || `https://login.microsoftonline.com/${this.auth.tenantId}`,
-                redirectUri: this.auth.redirectUri,
-                postLogoutRedirectUri: this.auth.postLogoutRedirectUri,
-                navigateToLoginRequestUrl: this.auth.navigateToLoginRequestUrl
-            },
+        this.loginRequest = Object.assign(this.loginRequest, options.loginRequest);
+        this.tokenRequest = Object.assign(this.tokenRequest, options.tokenRequest);
+        
+        const config: msal.Configuration = {
+            auth: this.auth,
             cache: this.cache
-        });
-
-        if (this.auth.requireAuthOnInitialize) {
-            console.log('requireAuthOnInitialize : ' + this.auth.requireAuthOnInitialize)
-            this.signIn()
         }
-        this.data.isAuthenticated = this.isAuthenticated();
-        if (this.data.isAuthenticated) {
-            console.log('isAuthenticated')
-            const currentAccounts = this.lib.getAllAccounts();
-            if (currentAccounts === null) {
-                // No user signed in
-                return;
-            } else if (currentAccounts.length > 1) {
-                // More than one user signed in, find desired user with getAccountByUsername(username)
-            } else {
-                console.log('logged in : ' + currentAccounts[0].username);
-                const token = this.getTokenPopup()
-            }
-        } else {
-            console.log('Not isAuthenticated!')
-        }
+        this.msalLibrary = new msal.PublicClientApplication(config);
+        this.signIn()
     }
-    isAuthenticated() {
-        const currentAccounts = this.lib.getAllAccounts();
-        if (currentAccounts === null) {
-            // No user signed in
-            return false;
-        } else if (currentAccounts.length > 1) {
-            // More than one user signed in, find desired user with getAccountByUsername(username)
-            return true
-        } else {
-            return true
-        }
-    }
-    async signIn() {
-        this.lib.loginPopup(this.request).then(loginResponse => {
-            console.log('id_token acquired at: ' + new Date().toString());
-            console.log('got account!' + this.lib.getAccount())
+    signIn() {
+        this.msalLibrary.loginPopup(this.loginRequest).then(loginResponse => {
+            console.log('id_token and access token acquired at: ' + new Date().toString());
+            // set data attributes
+            this.handleLoginResponse(loginResponse)
         }).catch(error => {
             console.error(error);
-        });
+        });   
     }
-
     signOut() {
-        this.lib.logout()
+        this.msalLibrary.logout()
     }
+    getTokenPopup() {
+        console.log('in get token popup!');
+        return this.msalLibrary.acquireTokenSilent(this.loginRequest).catch(error => {
+            console.warn(error);
+            console.warn("silent token acquisition fails. acquiring token using popup");
 
-    async getTokenPopup() {
-        return await this.lib.acquireTokenSilent(this.request).catch(async (error) => {
-            console.log("silent token acquisition fails. acquiring token using popup: " + error);
             // fallback to interaction when silent call fails
-            return this.lib.acquireTokenPopup(this.request)
+            return this.msalLibrary.acquireTokenPopup(this.loginRequest)
                 .then(tokenResponse => {
+                    console.log('token popup response: ');
+                    console.log(tokenResponse);
+                    
                     return tokenResponse;
                 }).catch(error => {
                     console.error(error);
                 });
         });
+    }
+    isAuthenticated() {
+        return this.data.isAuthenticated
+    }
+    private handleLoginResponse(response) {
+        if (response !== null) {
+            this.data.idToken = response.idToken;
+            this.data.accessToken = response.accessToken;
+            this.data.user.name = response.account.name;
+            this.data.user.userName = response.account.userName;
+        } else {
+            let account = this.msalLibrary.getAccount()
+            if (account !== null) {
+                console.log(account);
+                this.data.idToken = account.idToken;
+                this.data.accessToken = ''
+                this.data.user.name = account.name;
+                this.data.user.userName = account.userName;
+            }
+        }
     }
 }

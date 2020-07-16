@@ -1,8 +1,7 @@
 'use strict';
-import { Options, MSALBasic } from './src/types';
+import { iMSAL, Options } from './src/types';
 import { MSAL } from './src/main';
 import { mixin } from "./mixin";
-export const msalMixin = mixin;
 
 export default class msalPlugin {
     static install(Vue: any, options: Options): void {
@@ -13,7 +12,7 @@ export default class msalPlugin {
         if (Vue && options.framework && options.framework.globalMixin) {
             Vue.mixin(mixin);
         }
-        const exposed: MSALBasic = {
+        const exposed: iMSAL = {
             data: msal.data,
             async signIn() { await msal.signIn(); },
             async signOut() { await msal.signOut(); },
