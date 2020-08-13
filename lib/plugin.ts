@@ -16,7 +16,7 @@ export default class msalPlugin {
             data: msal.data,
             async signIn() { await msal.signIn(); },
             async signOut() { await msal.signOut(); },
-            async getTokenPopup() { await msal.getTokenPopup(); },
+            async acquireToken() { await msal.acquireToken(); },
             isAuthenticated() { return msal.isAuthenticated(); }
         };
         return exposed;

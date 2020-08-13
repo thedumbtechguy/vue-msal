@@ -42,6 +42,7 @@ export type Auth = {
     clientId: string,
     authority: string,
     redirectUri: string,
+    autoRefreshToken?: boolean,
     onAuthentication: (ctx: object, error: AuthError, response: AuthResponse) => any,
     onToken: (ctx: object, error: AuthError | null, response: AuthResponse | null) => any,
     beforeSignOut: (ctx: object) => any
@@ -51,7 +52,7 @@ export interface iMSAL {
     data: DataObject,
     signIn: () => Promise<any> | void,
     signOut: () => Promise<any> | void,
-    getTokenPopup: () => Promise<any> | void,
+    acquireToken: () => Promise<any> | void,
     isAuthenticated: () => boolean
 }
 
