@@ -62,14 +62,9 @@ export class MSAL implements iMSAL {
         }
         this.msalLibrary = new msal.PublicClientApplication(config);
         this.signIn()
-        this.data.isAuthenticated = this.isAuthenticated();
-        if (this.isAuthenticated()) {
-            this.acquireToken()
-        }
     }
     signIn() {
         return this.msalLibrary.loginPopup(this.loginRequest).then(loginResponse => {
-            console.log(loginResponse);
             if (loginResponse !== null) {
                 this.data.user.userName = loginResponse.account.username;
                 this.data.accessToken = loginResponse.accessToken;
@@ -100,11 +95,13 @@ export class MSAL implements iMSAL {
             account: this.msalLibrary.getAccountByUsername(this.data.user.userName)
         };
         this.msalLibrary.logout(logoutRequest);
-        this.data.isAuthenticated = false;
+        this.data.accessToken = "";
+        this.data.idToken = "";
+        this.data.user.userName = "";
     }
     async acquireToken(request = this.loginRequest, retries = 0) {
         this.loginRequest.account = this.data.account
-        console.log('in acquireToken!');
+        console.log('in acquireToken! retries: ' + retries);
         try {
             const response = await this.msalLibrary.acquireTokenSilent(request);
             this.handleTokenResponse(null, response);
@@ -118,10 +115,11 @@ export class MSAL implements iMSAL {
             } else if(retries > 0) {
                 console.log('in acquireToken with retries: ' + retries)
                 return await new Promise((resolve) => {
+                    console.log('setting timeout 5 seconds')
                     setTimeout(async () => {
                         const res = await this.acquireToken(request, retries-1);
                         resolve(res);
-                    }, 60 * 1000);
+                    }, 5 * 1000);
                 })
             }
             return false;
@@ -148,19 +146,21 @@ export class MSAL implements iMSAL {
         }
     }
     private setToken(tokenType:string, token: string, expiresOn: Date, scopes: string[]) {
-        const expirationOffset = 1 * 1000;
+        const expirationOffset = 10000000;
         const expiration = expiresOn.getTime() - (new Date()).getTime() - expirationOffset;
-        console.log('set')
+        console.log('set token: ' + expiration)
         if (expiration >= 0) {
             console.log('setting token: ' + tokenType + " with val: " + token)
             this.data[tokenType] = token;
         }
         if (this.tokenExpirationTimers[tokenType]) clearTimeout(this.tokenExpirationTimers[tokenType]);
         this.tokenExpirationTimers[tokenType] = window.setTimeout(async () => {
+            console.log('auto refreshing token: ' + this.auth.autoRefreshToken)
             if (this.auth.autoRefreshToken) {
                 await this.acquireToken({ scopes }, 3);
             } else {
                 this.data[tokenType] = '';
+                console.log('setting token to none:' + this.data.accessToken)
             }
         }, expiration)
     }
