@@ -61,9 +61,6 @@ export class MSAL implements iMSAL {
             cache: this.cache
         }
         this.msalLibrary = new msal.PublicClientApplication(config);
-        if(this.auth.requireAuthOnInitialize) {
-            this.signIn()
-        }
     }
     signIn() {
         return this.msalLibrary.loginPopup(this.loginRequest).then(loginResponse => {
